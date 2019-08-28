@@ -1,0 +1,41 @@
+name: haskell-handles-talk
+version: '0.0.0'
+github: "jship/haskell-handles-talk"
+license: MIT
+author: "Jason Shipman"
+maintainer: "Jason Shipman"
+synopsis: Dev talk for handle stuff.
+description: Dev talk for handle stuff.
+category: Other
+
+extra-source-files:
+- LICENSE.md
+- package.yaml
+- README.md
+- stack.yaml
+
+ghc-options:
+- -Wall
+- -Werror
+- -rtsopts
+- -threaded
+- '"-with-rtsopts=-N -T"'
+
+dependencies:
+- aeson
+- base
+- postgresql-config
+
+executables:
+  1-basic:
+    source-dirs: executables/1-basic
+    main: Main.hs
+  2-add-logger:
+    source-dirs: executables/2-add-logger
+    main: Main.hs
+  3-polymorphic:
+    source-dirs: executables/3-polymorphic
+    main: Main.hs
+  4-watch-out:
+    source-dirs: executables/4-watch-out
+    main: Main.hs

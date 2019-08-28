@@ -1,0 +1,5 @@
+resolver: lts-13.5
+packages:
+- .
+extra-deps:
+- postgresql-config-0.1.0
