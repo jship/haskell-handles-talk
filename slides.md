@@ -429,7 +429,7 @@ a `Handle`'s specific interface, so in our case, implementations of
 
 When we need to more strongly separate the interface from the
 implementation, we can do this by converting our `Handle` to a record of
-functions:
+functions (plus an action!):
 
 . . .
 
@@ -443,15 +443,16 @@ import Types (User, Email) -- just some dummy types
 data Handle = Handle
   { createUser :: Email -> IO User
   , deleteUser :: Email -> IO ()
+
+  , close :: IO ()
   }
 ```
 
 . . .
 
 Here we have taken everything out of the `UserDatabase` module except
-the `Handle`.
-
-We are also now exporting the `Handle`'s constructor and fields.
+the `Handle`.  We are also now exporting the `Handle`'s constructor and
+fields.
 
 ## "Polymorphic" Handles (cont'd)
 
@@ -462,14 +463,13 @@ module UserDatabase.Postgres
   ( module UserDatabase -- Re-export the Handle type, constructor, and fields
   , Config(..)
   , new
-  , close
   , withHandle
   ) where
 ```
 
 . . .
 
-Our `Config` code stays the same, but it lives in the specific
+Our `Config` code stays the same, and it lives in the specific
 implementation's module:
 
 ```haskell
@@ -484,13 +484,10 @@ instance Aeson.FromJSON Config where
 
 ## "Polymorphic" Handles (cont'd)
 
-Like our `Config` code, our `close` and `withHandle` stay the same.
-They also live in the specific implementation's module:
+Like our `Config` code, our `withHandle` function stays the same.  It
+also lives in the specific implementation's module:
 
 ```haskell
-close :: Handle -> IO ()
-close = const (pure ())
-
 withHandle :: Config -> Logger.Handle -> (Handle -> IO a) -> IO a
 withHandle config logger = Exception.bracket (new config logger) close
 ```
@@ -510,13 +507,16 @@ new Config { postgresConf } _logger = do
     , deleteUser = \_email -> do
         -- actually delete the user from postgres!
         pure ()
+
+    , close = pure ()
     }
 ```
 
 ## "Polymorphic" Handles (cont'd)
 
 If the inline definitions of `createUser` and `deleteUser` get
-hard to read, we can split out their implementations:
+hard to read (and `close` for that matter), we can split out their
+implementations:
 
 ```haskell
 new :: Config -> Logger.Handle -> IO Handle
@@ -525,6 +525,8 @@ new Config { postgresConf } logger = do
   pure Handle
     { createUser = createUserWith connectionPool logger
     , deleteUser = deleteUserWith connectionPool logger
+
+    , close = pure ()
     }
 
 createUserWith :: PGPool -> Logger.Handle -> Email -> IO User
@@ -617,9 +619,9 @@ consider that our existing user database `Handle` supported a new
 
 ```haskell
 data Handle = Handle
-  { createUser :: Email -> IO User
-  , deleteUser :: Email -> IO ()
+  { -- ...
   , findUser   :: Email -> IO User
+  , -- ...
   }
 ```
 
@@ -639,7 +641,7 @@ We may prefer to generalize "polymorphic" handles a bit:
 data HandleM m = Handle
   { createUser :: Email -> m User
   , deleteUser :: Email -> m ()
-  , findUser   :: Email -> m User
+  , close :: m ()
   }
 ```
 
@@ -656,17 +658,17 @@ type Handle = HandleM IO
 
 . . .
 
-**In my opinion**, generalizing a "polymorphic" handle is very much
+**In my opinion**, generalizing a "polymorphic" handle is a case of
 YAGNI and the type parameter nukes the simplicity of just passing
 `Handle` values around.
 
 . . .
 
 For example, type `HandleM IO` is different from type `HandleM (Writer
-Stuff)`, `HandleM (ReaderT Things IO)`, etc. We could probably get
-clever writing natural transformations to do all sorts of conversions
-between `HandleM f`'s and `HandleM g`'s, but it soon starts to feel like
-too much complexity for my taste.
+Stuff)`, `HandleM (ReaderT Things IO)`, etc. We could get clever writing
+natural transformations to do all sorts of conversions between `HandleM
+f`'s and `HandleM g`'s, but it soon starts to feel like too much
+complexity for my taste.
 
 . . .
 
